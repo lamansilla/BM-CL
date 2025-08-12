@@ -31,11 +31,11 @@ DATASET_CONFIG = {
     },
 }
 
-# Grid configuration for each model
+# Grid search configurations for each model
 MODEL_CONFIG = {
     "GroupDRO-EWC": {
         "pretrain_ratio_erm": [0.1, 0.2, 0.3],
-        "lambda_ewc": [0.1, 1],
+        "lambda_ewc": [0.1, 1, 10],
         "eta_dro": [0.001],
     },
     "GroupDRO-LwF": {
@@ -46,7 +46,7 @@ MODEL_CONFIG = {
     },
     "ReSample-EWC": {
         "pretrain_ratio_erm": [0.1, 0.2, 0.3],
-        "lambda_ewc": [0.1, 1],
+        "lambda_ewc": [0.1, 1, 10],
     },
     "ReSample-LwF": {
         "pretrain_ratio_erm": [0.1, 0.2, 0.3],
@@ -54,9 +54,7 @@ MODEL_CONFIG = {
         "alpha_lwf": [0.1, 1, 10],
     },
     "JTT": {
-        # "lr": [1e-4],  # waterbirds
-        # "lr": [1e-5],  # celeba
-        # "lr": [1e-3],  # chexpert
+        "lr": [1e-4],  # 1e-4 waterbirds, 1e-5 celeba, 1e-3 chexpert
         "pretrain_ratio_erm": [0.1, 0.2, 0.3],
         "lambda_jtt": [5, 20, 50],
     },
