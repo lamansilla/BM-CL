@@ -1,0 +1,6 @@
+notebooks/
+metadata/
+experiments/exp1_sota_comparison/results/
+experiments/exp1_sota_comparison/figures/
+experiments/exp2_ablation_study/results/
+experiments/exp2_ablation_study/figures/
