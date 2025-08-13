@@ -180,12 +180,6 @@ class GroupDRO_LwF(GroupDRO):
         loss.backward()
         self.optimizer.step()
 
-        if self.lr_scheduler:
-            self.lr_scheduler.step()
-
-        if self.clip_grad:
-            self.network.zero_grad()
-
         return loss.item()
 
 
@@ -232,12 +226,6 @@ class ReSample_LwF(ReSample):
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-
-        if self.lr_scheduler:
-            self.lr_scheduler.step()
-
-        if self.clip_grad:
-            self.network.zero_grad()
 
         return loss.item()
 
