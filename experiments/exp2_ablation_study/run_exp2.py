@@ -41,7 +41,7 @@ def dict_to_cli_args(arg_dict):
 def run_experiment(model_name, extra_args_dict, results_dir):
     if model_name == "JTT":
         script = "scripts.trainers.trainer_jtt"
-    elif model_name in ["EWC", "LwF"]:
+    elif "EWC" in model_name or "LwF" in model_name:
         script = "scripts.trainers.trainer_two_stage"
     else:
         script = "scripts.trainers.trainer_single_stage"
