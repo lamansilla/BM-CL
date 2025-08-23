@@ -110,7 +110,7 @@ MODEL_CONFIG = {
         "GroupDRO-EWC": {
             "pretrain_ratio_erm": 0.2,
             "eta_dro": 0.001,
-            "lambda_ewc": 1,
+            "lambda_ewc": 0.1,
         },
         "GroupDRO-LwF": {
             "pretrain_ratio_erm": 0.3,
