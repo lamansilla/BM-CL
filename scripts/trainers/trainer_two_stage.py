@@ -68,9 +68,9 @@ def main(args):
 
     model.load_state_dict(torch.load(save_path))
 
-    # Get predictions for the training set
+    # Get predictions for the validation set
     print("Evaluating trained model on training set.")
-    results = get_predictions(
+    results_val = get_predictions(
         model,
         dataset["train"],
         batch_size=args.batch_size,
@@ -81,7 +81,7 @@ def main(args):
 
     # Perform group partitioning
     print("Performing group partitioning.")
-    group_partition = get_group_partition(results, metric=args.metric)
+    group_partition = get_group_partition(results_val, metric=args.metric)
     with open(os.path.join(args.output_dir, "group_partition.txt"), "w") as f:
         for key, value in group_partition.items():
             f.write(f"{key}: {value}\n")
@@ -94,6 +94,17 @@ def main(args):
 
     if cl_method == "EWC":
         hparams["weight_decay"] = 1e-5
+
+    # Get predictions for the training set if using LwF
+    if cl_method == "LwF":
+        results_train = get_predictions(
+            model,
+            dataset["train"],
+            batch_size=args.batch_size,
+            num_workers=4,
+            device=device,
+            return_logits=True,
+        )
 
     # Prepare model for retraining
     model = get_algorithm(
@@ -117,7 +128,7 @@ def main(args):
 
     weights = dataset["train"].get_weights() if bm_method == "ReSample" else None
     if cl_method == "LwF":
-        dataset["train"].set_prev_outputs(results["logits"])
+        dataset["train"].set_prev_outputs(results_train["logits"])
     dataloader = create_dataloader(dataset, args.batch_size, weights, num_workers=4)
 
     save_path = os.path.join(args.output_dir, "best_model2.pth")
