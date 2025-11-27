@@ -22,6 +22,7 @@ In `scripts/prepare_data/` you will find the scripts required to prepare specifi
 - **Waterbirds**: `create_waterbirds.py`
 - **CelebA**: `create_celeba.py`
 - **CheXpert**: `create_chexpert.py`
+- **Adult**: `create_adult.py`
 
 These scripts generate the corresponding CSV metadata files in the `metadata/` folder. 
 
