@@ -34,6 +34,8 @@ def main(args):
         "use_pretrained": args.use_pretrained,
         "device": device,
         "eta_dro": args.eta_dro,
+        "irm_lambda": args.irm_lambda,
+        "irm_warmup_iters": args.irm_warmup_iters,
     }
 
     model = get_algorithm(
@@ -94,6 +96,8 @@ if __name__ == "__main__":
     parser.add_argument("--use_pretrained", action="store_true")
     parser.add_argument("--use_gpu", action="store_true")
     parser.add_argument("--eta_dro", type=float, default=0.01)
+    parser.add_argument("--irm_lambda", type=float, default=1e4)
+    parser.add_argument("--irm_warmup_iters", type=int, default=500)
     parser.add_argument("--seed", type=int, default=42)
 
     args = parser.parse_args()

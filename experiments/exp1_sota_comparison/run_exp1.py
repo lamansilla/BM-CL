@@ -6,13 +6,14 @@ from config1 import DATASET_CONFIG, MODEL_CONFIG
 INITIAL_SEED = 425
 NUM_RUNS = 5
 
-dataset_name = "chexpert"
+dataset_name = "adult"
 dataset_cfg = DATASET_CONFIG[dataset_name]
 model_cfg = MODEL_CONFIG[dataset_name]
 
 base_results_dir = "./experiments/exp1_sota_comparison/results"
 model_list = [
     "ERM",
+    "IRM",
     "ReSample",
     "GroupDRO",
     "JTT",

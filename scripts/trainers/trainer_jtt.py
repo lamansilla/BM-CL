@@ -138,6 +138,8 @@ if __name__ == "__main__":
     parser.add_argument("--use_gpu", action="store_true")
     parser.add_argument("--pretrain_ratio_erm", type=float, default=0.5)
     parser.add_argument("--lambda_jtt", type=int, default=10)
+    parser.add_argument("--irm_lambda", type=float, default=1e4)
+    parser.add_argument("--irm_warmup_iters", type=int, default=500)
     parser.add_argument("--seed", type=int, default=42)
 
     args = parser.parse_args()

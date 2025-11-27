@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch import autograd
 from transformers import get_scheduler
 
 from src.models.networks import get_network
@@ -63,6 +64,8 @@ class ERM(Algorithm):
 
         if self.data_type == "images":
             self.network = get_network("resnet", num_classes, hparams["use_pretrained"])
+        elif self.data_type == "tabular":
+            self.network = get_network("mlp", num_classes, hparams["use_pretrained"])
         else:
             raise NotImplementedError(f"Data type '{self.data_type}' not found.")
 
@@ -70,7 +73,7 @@ class ERM(Algorithm):
 
     def _init_model(self):
 
-        if self.data_type in {"images"}:
+        if self.data_type in {"images", "tabular"}:
             self.optimizer = get_optimizer(
                 "sgd",
                 self.network,
@@ -98,6 +101,50 @@ class ERM(Algorithm):
 
     def predict(self, x):
         return self.network(x)
+
+
+class IRM(ERM):
+    """Invariant Risk Minimization (IRM)."""
+
+    def __init__(self, data_type, num_classes, num_groups, hparams):
+        super(IRM, self).__init__(data_type, num_classes, num_groups, hparams)
+        self.register_buffer("update_count", torch.tensor([0]))
+
+    def _irm_penalty(self, logits, y):
+        scale = torch.tensor(1.0).to(self.device).requires_grad_()
+
+        loss_1 = self.loss_fn(logits[::2] * scale, y[::2]).mean()
+        loss_2 = self.loss_fn(logits[1::2] * scale, y[1::2]).mean()
+
+        grad_1 = autograd.grad(loss_1, [scale], create_graph=True)[0]
+        grad_2 = autograd.grad(loss_2, [scale], create_graph=True)[0]
+
+        return torch.sum(grad_1 * grad_2)
+
+    def _compute_loss(self, x, y, g):
+        if self.update_count.item() >= self.hparams["irm_warmup_iters"]:
+            penalty_weight = self.hparams["irm_lambda"]
+        else:
+            penalty_weight = 1.0
+
+        logits = self.predict(x)
+        nll, penalty = 0.0, 0.0
+        num_groups = len(g.unique())
+
+        for idx_g, idx_samples in self.return_groups(g):
+            group_logits = logits[idx_samples]
+            group_y = y[idx_samples]
+
+            nll += self.loss_fn(group_logits, group_y).mean()
+            penalty += self._irm_penalty(group_logits, group_y)
+
+        nll /= num_groups
+        penalty /= num_groups
+
+        loss = nll + penalty_weight * penalty
+        self.update_count += 1
+
+        return loss
 
 
 class GroupDRO(ERM):
@@ -232,6 +279,7 @@ class ReSample_LwF(ReSample):
 
 ALGORITHMS = {
     "ERM": ERM,
+    "IRM": IRM,
     "GroupDRO": GroupDRO,
     "ReSample": ReSample,
     "JTT": JTT,

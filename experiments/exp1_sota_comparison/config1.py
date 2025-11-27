@@ -29,12 +29,26 @@ DATASET_CONFIG = {
         "method": "max_worst",
         "metric": "acc",
     },
+    "adult": {
+        "root_dir": "",
+        "metadata_dir": "./metadata",
+        "num_epochs": 50,
+        "batch_size": 128,
+        "lr": 1e-3,
+        "weight_decay": 1e-4,
+        "method": "max_worst",
+        "metric": "acc",
+    },
 }
 
 
 MODEL_CONFIG = {
     "waterbirds": {
         "ERM": {},
+        "IRM": {
+            "irm_lambda": 0.1,
+            "irm_warmup_iters": 500,
+        },
         "ReSample": {},
         "GroupDRO": {
             "eta_dro": 0.001,
@@ -71,6 +85,10 @@ MODEL_CONFIG = {
         "GroupDRO": {
             "eta_dro": 0.001,
         },
+        "IRM": {
+            "irm_lambda": 0.01,
+            "irm_warmup_iters": 5000,
+        },
         "JTT": {
             "lr": 1e-5,
             "pretrain_ratio_erm": 0.2,
@@ -103,6 +121,10 @@ MODEL_CONFIG = {
         "GroupDRO": {
             "eta_dro": 0.001,
         },
+        "IRM": {
+            "irm_lambda": 0.01,
+            "irm_warmup_iters": 5000,
+        },
         "JTT": {
             "pretrain_ratio_erm": 0.1,
             "lambda_jtt": 5,
@@ -126,6 +148,42 @@ MODEL_CONFIG = {
             "pretrain_ratio_erm": 0.3,
             "tau_lwf": 2,
             "alpha_lwf": 10,
+        },
+    },
+    "adult": {
+        "ERM": {},
+        "IRM": {
+            "irm_lambda": 10,
+            "irm_warmup_iters": 1000,
+        },
+        "ReSample": {},
+        "GroupDRO": {
+            "eta_dro": 0.001,
+        },
+        "JTT": {
+            "lr": 1e-3,
+            "pretrain_ratio_erm": 0.1,
+            "lambda_jtt": 10,
+        },
+        "GroupDRO-EWC": {
+            "pretrain_ratio_erm": 0.2,
+            "eta_dro": 0.001,
+            "lambda_ewc": 0.1,
+        },
+        "GroupDRO-LwF": {
+            "pretrain_ratio_erm": 0.2,
+            "eta_dro": 0.001,
+            "tau_lwf": 2,
+            "alpha_lwf": 1,
+        },
+        "ReSample-EWC": {
+            "pretrain_ratio_erm": 0.2,
+            "lambda_ewc": 10,
+        },
+        "ReSample-LwF": {
+            "pretrain_ratio_erm": 0.2,
+            "tau_lwf": 2,
+            "alpha_lwf": 1,
         },
     },
 }

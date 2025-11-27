@@ -9,6 +9,8 @@ def get_network(network_name, num_classes, use_pretrained):
 
     if network_name == "resnet":
         return ResNet(num_classes, use_pretrained)
+    elif network_name == "mlp":
+        return MLP(num_classes, use_pretrained)
 
 
 class ResNet(nn.Module):
@@ -31,6 +33,32 @@ class ResNet(nn.Module):
         return x
 
 
+class MLP(nn.Module):
+    def __init__(self, num_classes, use_pretrained=True):
+        super(MLP, self).__init__()
+
+        prev_dim = 10
+        hidden_dims = [256, 256]
+        layers = []
+
+        for hidden_dim in hidden_dims:
+            layers.extend(
+                [
+                    nn.Linear(prev_dim, hidden_dim),
+                    nn.ReLU(),
+                ]
+            )
+            prev_dim = hidden_dim
+
+        layers.append(nn.Linear(prev_dim, num_classes))
+
+        self.network = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.network(x)
+
+
 NETWORKS = {
     "resnet": ResNet,
+    "mlp": MLP,
 }

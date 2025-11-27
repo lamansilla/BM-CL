@@ -188,8 +188,75 @@ class ChexpertDataset(__BaseDataset):
         super().__init__(root_dir, metadata, split, transform)
 
 
+class AdultDataset(torch.utils.data.Dataset):
+
+    DATA_TYPE = "tabular"
+    NUM_BATCHES = 500
+    SPLITS = {"train": 0, "val": 1, "test": 2}
+
+    def __init__(self, root_dir, metadata_dir, split, use_pretrained=True):
+        self.root_dir = root_dir
+        self.split = split
+
+        metadata = f"{metadata_dir}/adult.csv"
+        df = pd.read_csv(metadata)
+        df = df[df["split"] == self.SPLITS[split]].reset_index(drop=True)
+
+        feature_cols = [col for col in df.columns if col.startswith("feature_")]
+        self.features = torch.tensor(df[feature_cols].values, dtype=torch.float32)
+        self.labels = torch.tensor(df["y"].tolist(), dtype=torch.long)
+        self.groups = torch.tensor(df["g"].tolist(), dtype=torch.long)
+
+        self.num_classes = len(torch.unique(self.labels))
+        self.num_groups = len(torch.unique(self.groups))
+        self.prev_outputs = None
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, i):
+        features = self.features[i]
+        label = self.labels[i]
+        group = self.groups[i]
+
+        if self.prev_outputs is not None:
+            prev_output = torch.tensor(self.prev_outputs[i], dtype=torch.float32)
+            return features, label, group, prev_output
+
+        return features, label, group
+
+    def get_num_classes(self):
+        return self.num_classes
+
+    def get_num_groups(self):
+        return self.num_groups
+
+    def get_group_counts(self):
+        counts = [0] * self.num_groups
+        for g in self.groups.tolist():
+            counts[g] += 1
+        return counts
+
+    def get_weights(self):
+        group_counts = self.get_group_counts()
+        weights = [1.0 / group_counts[g] for g in self.groups.tolist()]
+        return weights
+
+    def set_prev_outputs(self, prev_outputs):
+        if len(prev_outputs) != len(self.labels):
+            raise ValueError("Number of previous outputs must match number of labels.")
+        self.prev_outputs = prev_outputs
+
+    def get_group_subset(self, groups):
+        if not isinstance(groups, (list, tuple)):
+            groups = [groups]
+        indices = [i for i, g in enumerate(self.groups.tolist()) if g in groups]
+        return _GroupSubset(self, indices)
+
+
 DATASETS = {
     "waterbirds": WaterbirdsDataset,
     "celeba": CelebADataset,
     "chexpert": ChexpertDataset,
+    "adult": AdultDataset,
 }
