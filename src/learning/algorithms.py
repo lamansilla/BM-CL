@@ -1,29 +1,16 @@
 import torch
 import torch.nn as nn
 from torch import autograd
-from transformers import get_scheduler
-
-from src.models.networks import get_network
 
 from .continual_learning import EWC, LwF
-from .optimizers import get_optimizer
+from .models import get_network, get_optimizer
 
 
-def get_algorithm(
-    algorithm_name,
-    data_type,
-    num_classes,
-    num_groups,
-    hparams,
-):
+def get_algorithm(algorithm_name, data_type, num_classes, num_groups, hparams):
     if algorithm_name not in ALGORITHMS:
         raise NotImplementedError(f"Algorithm '{algorithm_name}' not found.")
-    return ALGORITHMS[algorithm_name](
-        data_type,
-        num_classes,
-        num_groups,
-        hparams,
-    )
+
+    return ALGORITHMS[algorithm_name](data_type, num_classes, num_groups, hparams)
 
 
 class Algorithm(torch.nn.Module):
@@ -62,27 +49,10 @@ class ERM(Algorithm):
     def __init__(self, data_type, num_classes, num_groups, hparams):
         super().__init__(data_type, num_classes, num_groups, hparams)
 
-        if self.data_type == "images":
-            self.network = get_network("resnet", num_classes, hparams["use_pretrained"])
-        elif self.data_type == "tabular":
-            self.network = get_network("mlp", num_classes, hparams["use_pretrained"])
-        else:
-            raise NotImplementedError(f"Data type '{self.data_type}' not found.")
-
-        self._init_model()
-
-    def _init_model(self):
-
-        if self.data_type in {"images", "tabular"}:
-            self.optimizer = get_optimizer(
-                "sgd",
-                self.network,
-                self.hparams["lr"],
-                self.hparams["weight_decay"],
-            )
-
         self.device = self.hparams["device"]
+        self.network = get_network(self.data_type, num_classes, hparams["use_pretrained"])
         self.network.to(self.device)
+        self.optimizer = get_optimizer(self.data_type, self.network, self.hparams)
         self.loss_fn = nn.CrossEntropyLoss(reduction="none")
 
     def _compute_loss(self, x, y, g):

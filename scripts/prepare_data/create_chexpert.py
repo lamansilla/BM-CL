@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pandas as pd
 from sklearn.model_selection import train_test_split
-
 from src.utils.misc import create_groups
 
 root_dir = "../datasets/CheXpert-v1.0-small"
@@ -76,9 +75,7 @@ df["y"] = df["y"].astype(int)
 groups = create_groups(df["a"], df["y"])
 df["g"] = groups.astype(int)
 
-df["filepath"] = df["Path"].apply(
-    lambda x: Path(x).relative_to("CheXpert-v1.0-small").as_posix()
-)
+df["filepath"] = df["Path"].apply(lambda x: Path(x).relative_to("CheXpert-v1.0-small").as_posix())
 
 df = df[["filepath", "y", "g", "a", "split"]]
 
@@ -86,10 +83,10 @@ os.makedirs(output_dir, exist_ok=True)
 df.to_csv(os.path.join(output_dir, "chexpert.csv"), index=False)
 
 print("CheXpert dataset prepared successfully.")
-print(f"Total images: {len(df)}")
-print(f"Training images: {len(df[df['split'] == 0])}")
-print(f"Validation images: {len(df[df['split'] == 1])}")
-print(f"Test images: {len(df[df['split'] == 2])}")
+print(f"Total samples: {len(df)}")
+print(f"Training samples: {len(df[df['split'] == 0])}")
+print(f"Validation samples: {len(df[df['split'] == 1])}")
+print(f"Test samples: {len(df[df['split'] == 2])}")
 print(f"Unique groups: {len(df['g'].unique())}")
 print(f"Unique labels: {len(df['y'].unique())}")
 print(f"Minimum group size (train): {df[df['split'] == 0]['g'].value_counts().min()}")

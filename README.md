@@ -10,7 +10,7 @@ First, clone this repository. Then, create the virtual environment and install t
 git clone https://github.com/lamansilla/BM-CL
 cd BM-CL
 conda env create -f environment.yml
-conda activate bmcl
+conda activate torch_gpu
 ```
 
 ---
@@ -23,6 +23,7 @@ In `scripts/prepare_data/` you will find the scripts required to prepare specifi
 - **CelebA**: `create_celeba.py`
 - **CheXpert**: `create_chexpert.py`
 - **Adult**: `create_adult.py`
+- **CivilComments**: `create_civil_comments.py`
 
 These scripts generate the corresponding CSV metadata files in the `metadata/` folder. 
 

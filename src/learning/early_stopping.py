@@ -9,6 +9,7 @@ class EarlyStopping:
         self.lower_is_better = lower_is_better
         self.best_score = None
         self.epochs_without_improvement = 0
+        self.early_stop = False
 
     def step(self, metric, state_dict):
         score = -metric if self.lower_is_better else metric
@@ -25,5 +26,7 @@ class EarlyStopping:
             self.epochs_without_improvement += 1
 
         if self.epochs_without_improvement >= self.patience:
+            self.early_stop = True
             return True
+
         return False

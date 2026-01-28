@@ -4,10 +4,12 @@ from collections import defaultdict
 
 import pandas as pd
 import torch
+from src.learning.early_stopping import EarlyStopping
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from src.learning.early_stopping import EarlyStopping
+METHODS = {"worst_acc", "balanced_acc", "worst_loss"}
+METRICS = {"loss", "acc", "tpr"}
 
 
 def train(
@@ -18,28 +20,25 @@ def train(
     val_loader,
     save_path,
     log_dir,
+    early_stopping=None,
     method="max_worst",
     metric="acc",
     device="cuda",
 ):
 
-    assert metric in {
-        "acc",
-        "tpr",
-    }, f"Unknown metric '{metric}'. Must be 'acc' or 'tpr'."
-    assert method in {
-        "max_worst",
-        "min_disparity",
-        "max_balanced",
-    }, f"Unknown method '{method}'. Must be 'max_worst', 'min_disparity', or 'max_balanced'."
+    assert metric in METRICS, f"Unknown metric '{metric}'."
+    assert method in METHODS, f"Unknown method '{method}'."
 
     model.to(device)
-    early_stopping = EarlyStopping(
-        save_path,
-        patience=10,
-        delta=0.0,
-        lower_is_better=False,
-    )
+
+    if early_stopping is None:
+        early_stopping = EarlyStopping(
+            save_path,
+            patience=10,
+            delta=0.0,
+            lower_is_better=True if metric == "loss" else False,
+        )
+
     writer = SummaryWriter(log_dir)
     history = []
     print(f"Training {model.__class__.__name__} on {device}.")
@@ -59,39 +58,50 @@ def train(
             if i == num_batches:
                 break
 
-        group_metrics = evaluate_by_group(model, val_loader, device, metric=metric)
-        score = get_model_score(group_metrics, method=method)
+        run_loss /= num_batches
+
+        group_acc = evaluate_by_group(model, val_loader, device, metric=metric)
+        group_acc_values = list(group_acc.values())
+        group_acc_str = " ".join([f"{acc:.3f}" for acc in group_acc_values])
+
+        if method == "worst_acc":
+            val_score = min(group_acc_values)
+        elif method == "balanced_acc":
+            val_score = sum(group_acc_values) / len(group_acc_values)
+        elif method == "worst_loss":
+            val_score = max(group_acc_values)
 
         epoch_time = (time.time() - start_time) / 60
         total_time += epoch_time
 
-        run_loss /= num_batches
-        group_metrics_str = ",".join([f"{v:.4f}" for v in group_metrics.values()])
-
         print(
-            f"[Epoch {epoch}] train_loss: {run_loss:.4f}, val_group_metrics: {group_metrics_str}, "
-            f"val_score: {score:.4f}, epoch_time: {epoch_time:.2f} min, total_time: {total_time:.2f} min"
+            f"[Epoch {epoch}] train_loss: {run_loss:.3f}, val_group_acc: {group_acc_str}, "
+            f"val_score: {val_score:.3f}, epoch_time: {epoch_time:.2f} min, total_time: {total_time:.2f} min"
         )
 
         writer.add_scalar("loss/train", run_loss, epoch)
-        writer.add_scalar("score/validation", score, epoch)
-        for g_id, acc in group_metrics.items():
+        writer.add_scalar("score/validation", val_score, epoch)
+
+        for g_id, acc in group_acc.items():
             writer.add_scalar(f"{metric}/group_{g_id}", acc, epoch)
 
-        record = {"epoch": epoch, "loss": run_loss, "score": score}
-        for g_id, acc in group_metrics.items():
+        record = {"epoch": epoch, "loss": run_loss, "score": val_score}
+
+        for g_id, acc in group_acc.items():
             record[f"group_{g_id}"] = acc
+
         history.append(record)
 
-        if early_stopping.step(score, model.state_dict()):
+        if early_stopping.step(val_score, model.state_dict()):
             print(f"Early stopping at epoch {epoch}")
             break
 
     writer.close()
+
     df = pd.DataFrame(history)
     df.to_csv(os.path.join(log_dir, "history.csv"), index=False)
 
-    print(f"Training finished. Best val_score: {early_stopping.best_score:.4f}.")
+    print(f"Training finished.")
     print(f"Best model saved to {save_path}.")
     print(f"Total training time: {total_time:.2f} min.")
 
@@ -99,8 +109,6 @@ def train(
 def evaluate_by_group(model, val_loader, device="cuda", metric="acc"):
     correct_by_group = defaultdict(int)
     total_by_group = defaultdict(int)
-    tp_by_group = defaultdict(int)
-    fn_by_group = defaultdict(int)
 
     model.to(device)
     model.eval()
@@ -119,52 +127,12 @@ def evaluate_by_group(model, val_loader, device="cuda", metric="acc"):
                 y_true = y[mask]
                 y_pred = preds[mask]
 
-                if metric == "acc":
-                    correct = (y_pred == y_true).sum().item()
-                    total = mask.sum().item()
-                    correct_by_group[g_id.item()] += correct
-                    total_by_group[g_id.item()] += total
+                correct = (y_pred == y_true).sum().item()
+                total = mask.sum().item()
+                correct_by_group[g_id.item()] += correct
+                total_by_group[g_id.item()] += total
 
-                elif metric == "tpr":
-                    for label in torch.unique(y_true):
-                        if label.item() != 1:
-                            continue
-                        label_mask = y_true == label
-                        tp = (y_pred[label_mask] == label).sum().item()
-                        fn = label_mask.sum().item() - tp
-                        tp_by_group[g_id.item()] += tp
-                        fn_by_group[g_id.item()] += fn
-
-    if metric == "acc":
-        return {g: correct_by_group[g] / total_by_group[g] for g in correct_by_group}
-    elif metric == "tpr":
-        return {
-            g: (
-                tp_by_group[g] / (tp_by_group[g] + fn_by_group[g])
-                if (tp_by_group[g] + fn_by_group[g]) > 0
-                else 0.0
-            )
-            for g in tp_by_group
-        }
-
-
-def get_model_score(group_metrics, method="max_worst"):
-    metric_values = list(group_metrics.values())
-    worst = min(metric_values)
-    best = max(metric_values)
-    disparity = best - worst
-    balanced_mean = sum(metric_values) / len(metric_values)
-
-    if method == "min_disparity":
-        return -disparity
-    elif method == "max_worst":
-        return worst
-    elif method == "max_balanced":
-        return balanced_mean
-    else:
-        raise ValueError(
-            f"Unknown method '{method}'. Must be 'max_worst', 'min_disparity', or 'max_balanced'."
-        )
+    return {g: correct_by_group[g] / total_by_group[g] for g in correct_by_group}
 
 
 def get_predictions(
@@ -219,7 +187,7 @@ def get_predictions(
     return final_results
 
 
-def get_group_partition(results, metric="acc"):
+def partition_groups(results, metric="acc"):
     labels = results["y_true"]
     preds = results["y_pred"]
     groups = results["group"]
@@ -232,15 +200,7 @@ def get_group_partition(results, metric="acc"):
         y_true = labels[mask]
         y_pred = preds[mask]
 
-        if metric == "acc":
-            val = (y_pred == y_true).sum() / mask.sum()
-        elif metric == "tpr":
-            positives = y_true == 1
-            if positives.sum() == 0:
-                val = 0.0
-            else:
-                tp = (y_pred[positives] == 1).sum()
-                val = tp / positives.sum()
+        val = (y_pred == y_true).sum() / mask.sum()
         group_metrics[g_id] = val
 
     balanced_val = sum(group_metrics.values()) / len(group_metrics)
@@ -254,4 +214,5 @@ def get_group_partition(results, metric="acc"):
         "group_metrics": [group_metrics[g_id] for g_id in group_ids],
         "balanced_" + metric: balanced_val,
     }
+
     return group_partition

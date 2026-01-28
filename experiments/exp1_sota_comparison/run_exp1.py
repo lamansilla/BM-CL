@@ -1,12 +1,14 @@
 import os
 import subprocess
+import sys
 
+import torch
 from config1 import DATASET_CONFIG, MODEL_CONFIG
 
 INITIAL_SEED = 425
 NUM_RUNS = 5
 
-dataset_name = "adult"
+dataset_name = "waterbirds"
 dataset_cfg = DATASET_CONFIG[dataset_name]
 model_cfg = MODEL_CONFIG[dataset_name]
 
@@ -82,10 +84,16 @@ def run_experiment(model_name, extra_args_dict, results_dir):
             cmd += dict_to_cli_args(extra_args_dict)
 
         print(f"\nRunning: {' '.join(cmd)}")
+
         subprocess.run(cmd, check=True)
 
 
 if __name__ == "__main__":
+
+    print("\nPython version :", sys.version.split("|")[0].strip())
+    print("PyTorch version:", torch.__version__)
+    print("CUDA version   :", torch.version.cuda)
+    print("CUDA available :", torch.cuda.is_available())
 
     for model_name in model_list:
         results_dir = os.path.join(base_results_dir, dataset_name, model_name)

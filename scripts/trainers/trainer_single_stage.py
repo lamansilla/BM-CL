@@ -3,7 +3,6 @@ import os
 
 import pandas as pd
 import torch
-
 from src.dataset.dataloader import create_dataloader
 from src.dataset.datasets import get_dataset
 from src.learning.algorithms import get_algorithm
@@ -12,6 +11,7 @@ from src.utils.training import get_predictions, train
 
 
 def main(args):
+
     set_seed(args.seed)
     device = get_device(gpu=args.use_gpu)
 
@@ -23,9 +23,7 @@ def main(args):
         use_pretrained=args.use_pretrained,
     )
 
-    # Only used in case of ReSample
     weights = dataset["train"].get_weights() if args.model == "ReSample" else None
-
     dataloader = create_dataloader(dataset, args.batch_size, weights, num_workers=4)
 
     hparams = {
@@ -65,8 +63,7 @@ def main(args):
 
     model.load_state_dict(torch.load(save_path))
 
-    # Get predictions for the test set
-    print("Evaluating trained model on test set.")
+    print("\nEvaluating trained model on test set.")
     results = get_predictions(
         model,
         dataset["test"],
@@ -74,14 +71,15 @@ def main(args):
         num_workers=4,
         device=device,
     )
+
     results_df = pd.DataFrame(results)
     results_df.to_csv(os.path.join(args.output_dir, "preds_test.csv"), index=False)
 
-    print("Done!")
+    print("\nDone!")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train a single-stage model.")
+    parser = argparse.ArgumentParser(description="Train single-stage model.")
     parser.add_argument("--dataset", type=str, required=True)
     parser.add_argument("--root_dir", type=str, required=True)
     parser.add_argument("--metadata_dir", type=str, required=True)
@@ -91,7 +89,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--weight_decay", type=float, default=0.0001)
-    parser.add_argument("--method", type=str, default="max_worst")
+    parser.add_argument("--method", type=str, default="worst_acc")
     parser.add_argument("--metric", type=str, default="acc")
     parser.add_argument("--use_pretrained", action="store_true")
     parser.add_argument("--use_gpu", action="store_true")

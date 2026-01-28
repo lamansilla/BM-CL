@@ -1,17 +1,23 @@
 import os
+from abc import ABC, abstractmethod
 
 import pandas as pd
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
-from torch.utils.data import Subset
+from torch.utils.data import Dataset, Subset
 
 
-def get_dataset(dataset_name, root_dir, metadata_dir, use_pretrained=True):
+def get_dataset(
+    dataset_name,
+    root_dir,
+    metadata_dir,
+    use_pretrained=True,
+):
     if dataset_name not in DATASETS:
         raise ValueError(f"Dataset '{dataset_name}' not found.")
     datasets = {}
-    for split in __BaseDataset.SPLITS.keys():
+    for split in BaseDataset.SPLITS.keys():
         datasets[split] = DATASETS[dataset_name](
             root_dir,
             metadata_dir,
@@ -21,47 +27,33 @@ def get_dataset(dataset_name, root_dir, metadata_dir, use_pretrained=True):
     return datasets
 
 
-class __BaseDataset(torch.utils.data.Dataset):
+class BaseDataset(Dataset, ABC):
 
     SPLITS = {"train": 0, "val": 1, "test": 2}
 
-    def __init__(self, root_dir, metadata, split, transform):
-        self.root_dir = root_dir
-        df = pd.read_csv(metadata)
-        df = df[df["split"] == self.SPLITS[split]].reset_index(drop=True)
-        self.transform = transform
-
-        self.image_paths = df["filepath"].tolist()
-        self.labels = torch.tensor(df["y"].tolist(), dtype=torch.long)
-        self.groups = torch.tensor(df["g"].tolist(), dtype=torch.long)
-
-        self.num_classes = len(torch.unique(self.labels))
-        self.num_groups = len(torch.unique(self.groups))
-
+    def __init__(self):
         self.prev_outputs = None
 
     def __len__(self):
         return len(self.labels)
 
     def __getitem__(self, i):
-        path = os.path.join(self.root_dir, self.image_paths[i])
-        label = self.labels[i]
-        group = self.groups[i]
-
-        image = self._load_image(path)
-
-        if self.transform is not None:
-            image = self.transform(image)
+        x = self._get_features(i)
+        y = self.labels[i]
+        g = self.groups[i]
 
         if self.prev_outputs is not None:
-            prev_output = torch.tensor(self.prev_outputs[i], dtype=torch.float32)
-            return image, label, group, prev_output
+            prev = torch.tensor(self.prev_outputs[i], dtype=torch.float32)
+            return x, y, g, prev
 
-        return image, label, group
+        return x, y, g
 
-    def _load_image(self, path):
-        return Image.open(path).convert("RGB")
+    # Must be implemented by subclasses
+    @abstractmethod
+    def _get_features(self, i):
+        pass
 
+    # Common to all datasets
     def get_num_classes(self):
         return self.num_classes
 
@@ -71,17 +63,16 @@ class __BaseDataset(torch.utils.data.Dataset):
     def get_group_counts(self):
         counts = [0] * self.num_groups
         for g in self.groups.tolist():
-            counts[g] += 1
+            counts[int(g)] += 1
         return counts
 
     def get_weights(self):
-        group_counts = self.get_group_counts()
-        weights = [1.0 / group_counts[g] for g in self.groups.tolist()]
-        return weights
+        counts = self.get_group_counts()
+        return [1.0 / counts[g] for g in self.groups.tolist()]
 
     def set_prev_outputs(self, prev_outputs):
         if len(prev_outputs) != len(self.labels):
-            raise ValueError("Number of previous outputs must match number of labels.")
+            raise ValueError("Size mismatch")
         self.prev_outputs = prev_outputs
 
     def get_group_subset(self, groups):
@@ -105,153 +96,186 @@ class _GroupSubset(Subset):
         return [self.dataset.groups[i].item() for i in self.indices]
 
 
-class WaterbirdsDataset(__BaseDataset):
+class ImageDataset(BaseDataset):
 
     DATA_TYPE = "images"
+
+    def __init__(
+        self,
+        root_dir,
+        metadata_path,
+        split,
+        image_root,
+        transform,
+    ):
+        super().__init__()
+
+        df = pd.read_csv(metadata_path)
+        df = df[df["split"] == self.SPLITS[split]].reset_index(drop=True)
+
+        self.image_paths = df["filepath"].tolist()
+        self.labels = torch.tensor(df["y"].tolist())
+        self.groups = torch.tensor(df["g"].tolist())
+
+        self.num_classes = len(torch.unique(self.labels))
+        self.num_groups = len(torch.unique(self.groups))
+
+        self.root_dir = image_root
+        self.transform = transform
+
+    def _get_features(self, i):
+        path = os.path.join(self.root_dir, self.image_paths[i])
+        img = Image.open(path).convert("RGB")
+        return self.transform(img)
+
+
+class WaterbirdsDataset(ImageDataset):
+
     NUM_BATCHES = 150
 
     def __init__(self, root_dir, metadata_dir, split, use_pretrained=True):
-        root_dir = os.path.join(root_dir, "waterbirds")
-        metadata = f"{metadata_dir}/waterbirds.csv"
+        image_root = os.path.join(root_dir, "Waterbirds")
+        metadata_path = f"{metadata_dir}/waterbirds.csv"
 
-        transform_list = [
-            transforms.Resize(
-                (
-                    int(224 * (256 / 224)),
-                    int(224 * (256 / 224)),
-                )
-            ),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-        ]
-        if use_pretrained:
-            transform_list.append(
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406],
-                    std=[0.229, 0.224, 0.225],
-                )
-            )
-        transform = transforms.Compose(transform_list)
-
-        super().__init__(root_dir, metadata, split, transform)
-
-
-class CelebADataset(__BaseDataset):
-
-    DATA_TYPE = "images"
-    NUM_BATCHES = 1280
-
-    def __init__(self, root_dir, metadata_dir, split, use_pretrained=True):
-        root_dir = os.path.join(root_dir, "celeba")
-        metadata = f"{metadata_dir}/celeba.csv"
-
-        transform_list = [
-            transforms.CenterCrop(178),
-            transforms.Resize(224),
-            transforms.ToTensor(),
-        ]
-        if use_pretrained:
-            transform_list.append(
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406],
-                    std=[0.229, 0.224, 0.225],
-                )
-            )
-        transform = transforms.Compose(transform_list)
-
-        super().__init__(root_dir, metadata, split, transform)
-
-
-class ChexpertDataset(__BaseDataset):
-
-    DATA_TYPE = "images"
-    NUM_BATCHES = 1050
-
-    def __init__(self, root_dir, metadata_dir, split, use_pretrained=True):
-        root_dir = os.path.join(root_dir, "CheXpert-v1.0-small")
-        metadata = f"{metadata_dir}/chexpert.csv"
-
-        transform_list = [
+        t = [
             transforms.Resize(256),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
         ]
         if use_pretrained:
-            transform_list.append(
+            t.append(
                 transforms.Normalize(
                     mean=[0.485, 0.456, 0.406],
                     std=[0.229, 0.224, 0.225],
                 )
             )
-        transform = transforms.Compose(transform_list)
 
-        super().__init__(root_dir, metadata, split, transform)
+        super().__init__(
+            root_dir=root_dir,
+            metadata_path=metadata_path,
+            split=split,
+            image_root=image_root,
+            transform=transforms.Compose(t),
+        )
 
 
-class AdultDataset(torch.utils.data.Dataset):
+class CelebADataset(ImageDataset):
+
+    NUM_BATCHES = 1280
+
+    def __init__(self, root_dir, metadata_dir, split, use_pretrained=True):
+        image_root = os.path.join(root_dir, "celeba")
+        metadata_path = f"{metadata_dir}/celeba.csv"
+
+        t = [
+            transforms.CenterCrop(178),
+            transforms.Resize(224),
+            transforms.ToTensor(),
+        ]
+        if use_pretrained:
+            t.append(
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225],
+                )
+            )
+
+        super().__init__(
+            root_dir=root_dir,
+            metadata_path=metadata_path,
+            split=split,
+            image_root=image_root,
+            transform=transforms.Compose(t),
+        )
+
+
+class ChexpertDataset(ImageDataset):
+
+    NUM_BATCHES = 1050
+
+    def __init__(self, root_dir, metadata_dir, split, use_pretrained=True):
+        image_root = os.path.join(root_dir, "CheXpert-v1.0-small")
+        metadata_path = f"{metadata_dir}/chexpert.csv"
+
+        t = [
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+        ]
+        if use_pretrained:
+            t.append(
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406],
+                    std=[0.229, 0.224, 0.225],
+                )
+            )
+
+        super().__init__(
+            root_dir=root_dir,
+            metadata_path=metadata_path,
+            split=split,
+            image_root=image_root,
+            transform=transforms.Compose(t),
+        )
+
+
+class AdultDataset(BaseDataset):
 
     DATA_TYPE = "tabular"
     NUM_BATCHES = 500
-    SPLITS = {"train": 0, "val": 1, "test": 2}
 
-    def __init__(self, root_dir, metadata_dir, split, use_pretrained=True):
-        self.root_dir = root_dir
-        self.split = split
+    def __init__(
+        self,
+        root_dir,
+        metadata_dir,
+        split,
+        use_pretrained=True,
+    ):
+        super().__init__()
 
-        metadata = f"{metadata_dir}/adult.csv"
-        df = pd.read_csv(metadata)
+        df = pd.read_csv(f"{metadata_dir}/adult.csv")
         df = df[df["split"] == self.SPLITS[split]].reset_index(drop=True)
 
-        feature_cols = [col for col in df.columns if col.startswith("feature_")]
+        feature_cols = [c for c in df.columns if c.startswith("feature_")]
         self.features = torch.tensor(df[feature_cols].values, dtype=torch.float32)
-        self.labels = torch.tensor(df["y"].tolist(), dtype=torch.long)
-        self.groups = torch.tensor(df["g"].tolist(), dtype=torch.long)
+        self.labels = torch.tensor(df["y"].tolist())
+        self.groups = torch.tensor(df["g"].tolist())
 
         self.num_classes = len(torch.unique(self.labels))
         self.num_groups = len(torch.unique(self.groups))
-        self.prev_outputs = None
 
-    def __len__(self):
-        return len(self.labels)
+    def _get_features(self, i):
+        return self.features[i]
 
-    def __getitem__(self, i):
-        features = self.features[i]
-        label = self.labels[i]
-        group = self.groups[i]
 
-        if self.prev_outputs is not None:
-            prev_output = torch.tensor(self.prev_outputs[i], dtype=torch.float32)
-            return features, label, group, prev_output
+class CivilCommentsDataset(BaseDataset):
 
-        return features, label, group
+    DATA_TYPE = "text"
+    NUM_BATCHES = 530
 
-    def get_num_classes(self):
-        return self.num_classes
+    def __init__(
+        self,
+        root_dir,
+        metadata_dir,
+        split,
+        use_pretrained=True,
+    ):
+        super().__init__()
 
-    def get_num_groups(self):
-        return self.num_groups
+        df = pd.read_csv(f"{metadata_dir}/civil_comments.csv")
+        df = df[df["split"] == self.SPLITS[split]].reset_index(drop=True)
 
-    def get_group_counts(self):
-        counts = [0] * self.num_groups
-        for g in self.groups.tolist():
-            counts[g] += 1
-        return counts
+        root_dir = os.path.join(root_dir, "CivilComments")
+        self.embeddings = torch.load(os.path.join(root_dir, f"embeddings_{split}.pt"))
 
-    def get_weights(self):
-        group_counts = self.get_group_counts()
-        weights = [1.0 / group_counts[g] for g in self.groups.tolist()]
-        return weights
+        self.labels = torch.tensor(df["y"].tolist())
+        self.groups = torch.tensor(df["g"].tolist())
 
-    def set_prev_outputs(self, prev_outputs):
-        if len(prev_outputs) != len(self.labels):
-            raise ValueError("Number of previous outputs must match number of labels.")
-        self.prev_outputs = prev_outputs
+        self.num_classes = len(torch.unique(self.labels))
+        self.num_groups = len(torch.unique(self.groups))
 
-    def get_group_subset(self, groups):
-        if not isinstance(groups, (list, tuple)):
-            groups = [groups]
-        indices = [i for i, g in enumerate(self.groups.tolist()) if g in groups]
-        return _GroupSubset(self, indices)
+    def _get_features(self, i):
+        return self.embeddings[i].float()
 
 
 DATASETS = {
@@ -259,4 +283,5 @@ DATASETS = {
     "celeba": CelebADataset,
     "chexpert": ChexpertDataset,
     "adult": AdultDataset,
+    "civil_comments": CivilCommentsDataset,
 }

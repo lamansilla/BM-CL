@@ -1,13 +1,15 @@
 import os
 import subprocess
+import sys
 from itertools import product
 
+import torch
 from config2 import DATASET_CONFIG, MODEL_CONFIG
 
 INITIAL_SEED = 425
 NUM_RUNS = 3
 
-dataset_name = "chexpert"
+dataset_name = "waterbirds"
 dataset_cfg = DATASET_CONFIG[dataset_name]
 model_cfg = MODEL_CONFIG
 
@@ -20,14 +22,6 @@ model_list = [
     "ReSample-LwF",
     "JTT",
 ]
-
-
-def dict_to_cli_args(arg_dict):
-    cli_args = []
-    for key, value in arg_dict.items():
-        cli_args.append(f"--{key}")
-        cli_args.append(str(value))
-    return cli_args
 
 
 def dict_to_cli_args(arg_dict):
@@ -87,10 +81,16 @@ def run_experiment(model_name, extra_args_dict, results_dir):
             cmd += dict_to_cli_args(extra_args_dict)
 
         print(f"\nRunning: {' '.join(cmd)}")
+
         subprocess.run(cmd, check=True)
 
 
 if __name__ == "__main__":
+
+    print("\nPython version :", sys.version.split("|")[0].strip())
+    print("PyTorch version:", torch.__version__)
+    print("CUDA version   :", torch.version.cuda)
+    print("CUDA available :", torch.cuda.is_available())
 
     for model_name in model_list:
         hparam_values = model_cfg[model_name]
@@ -105,7 +105,5 @@ if __name__ == "__main__":
                 config_parts.append(f"{name}_{value}")
 
             config_name = "_".join(config_parts)
-            results_dir = os.path.join(
-                base_results_dir, dataset_name, model_name, config_name
-            )
+            results_dir = os.path.join(base_results_dir, dataset_name, model_name, config_name)
             run_experiment(model_name, extra_args, results_dir)

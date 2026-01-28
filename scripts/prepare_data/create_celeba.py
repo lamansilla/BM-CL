@@ -1,7 +1,6 @@
 import os
 
 import pandas as pd
-
 from src.utils.misc import create_groups
 
 root_dir = "../datasets/celeba"
@@ -54,10 +53,10 @@ df = df[["filepath", "y", "g", "split"]]
 df.to_csv(os.path.join(output_dir, "celeba.csv"), index=False)
 
 print("CelebA dataset prepared successfully.")
-print(f"Total images: {len(df)}")
-print(f"Training images: {len(df[df['split'] == 0])}")
-print(f"Validation images: {len(df[df['split'] == 1])}")
-print(f"Test images: {len(df[df['split'] == 2])}")
+print(f"Total samples: {len(df)}")
+print(f"Training samples: {len(df[df['split'] == 0])}")
+print(f"Validation samples: {len(df[df['split'] == 1])}")
+print(f"Test samples: {len(df[df['split'] == 2])}")
 print(f"Unique groups: {df['g'].nunique()}")
 print(f"Unique labels: {df['y'].nunique()}")
 print(f"Minimum group size (train): {df[df['split'] == 0]['g'].value_counts().min()}")
