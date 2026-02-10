@@ -8,8 +8,7 @@ from src.learning.early_stopping import EarlyStopping
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-METHODS = {"worst_acc", "balanced_acc", "worst_loss"}
-METRICS = {"loss", "acc", "tpr"}
+METHODS = {"worst_acc", "balanced_acc"}
 
 
 def train(
@@ -21,12 +20,10 @@ def train(
     save_path,
     log_dir,
     early_stopping=None,
-    method="max_worst",
-    metric="acc",
+    method="worst_acc",
     device="cuda",
 ):
 
-    assert metric in METRICS, f"Unknown metric '{metric}'."
     assert method in METHODS, f"Unknown method '{method}'."
 
     model.to(device)
@@ -36,7 +33,7 @@ def train(
             save_path,
             patience=10,
             delta=0.0,
-            lower_is_better=True if metric == "loss" else False,
+            lower_is_better=False,
         )
 
     writer = SummaryWriter(log_dir)
@@ -60,35 +57,33 @@ def train(
 
         run_loss /= num_batches
 
-        group_acc = evaluate_by_group(model, val_loader, device, metric=metric)
-        group_acc_values = list(group_acc.values())
-        group_acc_str = " ".join([f"{acc:.3f}" for acc in group_acc_values])
+        group_scores = evaluate_by_group(model, val_loader, device)
+        group_values = list(group_scores.values())
+        group_str = " ".join([f"{val:.3f}" for val in group_values])
 
         if method == "worst_acc":
-            val_score = min(group_acc_values)
+            val_score = min(group_values)
         elif method == "balanced_acc":
-            val_score = sum(group_acc_values) / len(group_acc_values)
-        elif method == "worst_loss":
-            val_score = max(group_acc_values)
+            val_score = sum(group_values) / len(group_values)
 
         epoch_time = (time.time() - start_time) / 60
         total_time += epoch_time
 
         print(
-            f"[Epoch {epoch}] train_loss: {run_loss:.3f}, val_group_acc: {group_acc_str}, "
-            f"val_score: {val_score:.3f}, epoch_time: {epoch_time:.2f} min, total_time: {total_time:.2f} min"
+            f"[Epoch {epoch}] train_loss: {run_loss:.3f}, val_group_acc: {group_str}, "
+            f"val_{method}: {val_score:.3f}, epoch_time: {epoch_time:.2f} min, total_time: {total_time:.2f} min"
         )
 
         writer.add_scalar("loss/train", run_loss, epoch)
         writer.add_scalar("score/validation", val_score, epoch)
 
-        for g_id, acc in group_acc.items():
-            writer.add_scalar(f"{metric}/group_{g_id}", acc, epoch)
+        for g_id, val in group_scores.items():
+            writer.add_scalar(f"acc/group_{g_id}", val, epoch)
 
         record = {"epoch": epoch, "loss": run_loss, "score": val_score}
 
-        for g_id, acc in group_acc.items():
-            record[f"group_{g_id}"] = acc
+        for g_id, val in group_scores.items():
+            record[f"group_{g_id}"] = val
 
         history.append(record)
 
@@ -106,7 +101,7 @@ def train(
     print(f"Total training time: {total_time:.2f} min.")
 
 
-def evaluate_by_group(model, val_loader, device="cuda", metric="acc"):
+def evaluate_by_group(model, val_loader, device="cuda"):
     correct_by_group = defaultdict(int)
     total_by_group = defaultdict(int)
 

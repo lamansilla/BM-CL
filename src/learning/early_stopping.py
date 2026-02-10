@@ -18,7 +18,7 @@ class EarlyStopping:
             self.best_score = score
             torch.save(state_dict, self.save_path)
             self.epochs_without_improvement = 0
-        elif score > self.best_score - self.delta:
+        elif score > self.best_score + self.delta:
             self.best_score = score
             torch.save(state_dict, self.save_path)
             self.epochs_without_improvement = 0

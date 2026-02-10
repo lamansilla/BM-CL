@@ -6,8 +6,7 @@ DATASET_CONFIG = {
         "batch_size": 32,
         "lr": 1e-3,
         "weight_decay": 1e-4,
-        "method": "max_worst",
-        "metric": "acc",
+        "method": "worst_acc",
     },
     "celeba": {
         "root_dir": "../datasets",
@@ -16,8 +15,7 @@ DATASET_CONFIG = {
         "batch_size": 32,
         "lr": 1e-4,
         "weight_decay": 1e-4,
-        "method": "max_worst",
-        "metric": "acc",
+        "method": "worst_acc",
     },
     "chexpert": {
         "root_dir": "../datasets",
@@ -26,8 +24,7 @@ DATASET_CONFIG = {
         "batch_size": 32,
         "lr": 1e-3,
         "weight_decay": 1e-4,
-        "method": "max_worst",
-        "metric": "acc",
+        "method": "worst_acc",
     },
 }
 

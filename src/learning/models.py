@@ -1,5 +1,3 @@
-import warnings
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -37,11 +35,6 @@ class ResNet(nn.Module):
         super().__init__()
 
         model = models.resnet50(weights="IMAGENET1K_V1" if use_pretrained else None)
-
-        if use_pretrained:
-            print("Using pretrained weights for ResNet50.")
-        else:
-            print("Not using pretrained weights for ResNet50.")
 
         self.featurizer = nn.Sequential(*list(model.children())[:-1])
         self.classifier = nn.Linear(model.fc.in_features, num_classes)

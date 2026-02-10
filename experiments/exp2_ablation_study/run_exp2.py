@@ -69,8 +69,6 @@ def run_experiment(model_name, extra_args_dict, results_dir):
             str(dataset_cfg["weight_decay"]),
             "--method",
             dataset_cfg["method"],
-            "--metric",
-            dataset_cfg["metric"],
             "--use_pretrained",
             "--use_gpu",
             "--seed",

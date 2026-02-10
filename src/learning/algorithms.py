@@ -142,15 +142,21 @@ class GroupDRO(ERM):
 
 
 class ReSample(ERM):
-    """ERM with resampling."""
+    """ERM with resampling by group weight.
+    
+    During training, samples are resampled such that each group has
+    equal probability of being sampled, regardless of group size.
+    """
 
     pass
 
 
 class JTT(ERM):
-    """Just Train Twice (JTT)."""
-
-    pass
+    """Just Train Twice (JTT).
+    
+    First stage: train ERM to identify hard examples.
+    Second stage: retrain with upweighted hard examples.
+    """
 
 
 class GroupDRO_EWC(GroupDRO):

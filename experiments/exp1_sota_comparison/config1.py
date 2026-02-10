@@ -7,7 +7,6 @@ DATASET_CONFIG = {
         "lr": 1e-3,
         "weight_decay": 1e-4,
         "method": "worst_acc",
-        "metric": "acc",
     },
     "celeba": {
         "root_dir": "../datasets",
@@ -17,7 +16,6 @@ DATASET_CONFIG = {
         "lr": 1e-4,
         "weight_decay": 1e-4,
         "method": "worst_acc",
-        "metric": "acc",
     },
     "chexpert": {
         "root_dir": "../datasets",
@@ -27,7 +25,6 @@ DATASET_CONFIG = {
         "lr": 1e-3,
         "weight_decay": 1e-4,
         "method": "worst_acc",
-        "metric": "acc",
     },
     "adult": {
         "root_dir": "",
@@ -37,7 +34,6 @@ DATASET_CONFIG = {
         "lr": 1e-3,
         "weight_decay": 1e-4,
         "method": "worst_acc",
-        "metric": "acc",
     },
     "civil_comments": {
         "root_dir": "../datasets",
@@ -47,7 +43,6 @@ DATASET_CONFIG = {
         "lr": 1e-4,
         "weight_decay": 1e-4,
         "method": "worst_acc",
-        "metric": "acc",
     },
 }
 

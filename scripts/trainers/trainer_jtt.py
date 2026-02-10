@@ -3,6 +3,7 @@ import os
 
 import pandas as pd
 import torch
+
 from src.dataset.dataloader import create_dataloader
 from src.dataset.datasets import get_dataset
 from src.learning.algorithms import get_algorithm
@@ -54,7 +55,6 @@ def main(args):
         save_path=save_path,
         log_dir=log_dir,
         method=args.method,
-        metric=args.metric,
         device=device,
     )
 
@@ -95,7 +95,6 @@ def main(args):
         save_path=save_path,
         log_dir=log_dir,
         method=args.method,
-        metric=args.metric,
         device=device,
     )
 
@@ -128,7 +127,6 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=0.001)
     parser.add_argument("--weight_decay", type=float, default=0.0001)
     parser.add_argument("--method", type=str, default="worst_acc")
-    parser.add_argument("--metric", type=str, default="acc")
     parser.add_argument("--use_pretrained", action="store_true")
     parser.add_argument("--use_gpu", action="store_true")
     parser.add_argument("--pretrain_ratio_erm", type=float, default=0.5)

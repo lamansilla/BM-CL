@@ -17,10 +17,7 @@ def get_device(gpu=True):
     if gpu and torch.cuda.is_available():
         device = torch.device("cuda")
         print("Using GPU.")
-    elif not gpu:
-        device = torch.device("cpu")
-        print("Using CPU.")
-    elif not gpu and not torch.cuda.is_available():
+    else:
         device = torch.device("cpu")
         print("Using CPU.")
     return device
