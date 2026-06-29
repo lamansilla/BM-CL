@@ -1,0 +1,28 @@
+name: torch_gpu
+channels:
+  - defaults
+dependencies:
+  - ipykernel
+  - jupyter
+  - matplotlib
+  - numpy==1.25.2
+  - pandas
+  - pip
+  - python=3.11
+  - pytorch-cuda=11.8
+  - pytorch==2.2.1
+  - scikit-learn
+  - scipy
+  - torchaudio==2.2.1
+  - torchvision==0.17.1
+  - cuda-nvrtc=11.8
+  - cuda-cudart=11.8
+  - cudatoolkit=11.8.0
+  - tqdm
+  - conda-forge::tensorboard
+  - black
+  - torch-tb-profiler
+  - seaborn
+  - conda-forge::scikit-learn-extra
+  - monai
+  - nibabel
